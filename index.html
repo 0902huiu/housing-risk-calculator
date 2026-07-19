@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>청년 주거 위험 조정 비용 비교 계산기</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root{
+    --canvas:#0a0d3a;
+    --surface:#1e2353;
+    --surface-2:#141845;
+    --blurple:#5865f2;
+    --blurple-soft:#8b93f8;
+    --green:#35ed7e;
+    --magenta:#ec48bd;
+    --cyan:#00b0f4;
+    --ink:#ffffff;
+    --muted:rgba(255,255,255,.62);
+    --line:rgba(255,255,255,.12);
+    --r-sm:12px; --r-lg:16px; --r-xl:40px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{font-size:16px;}
+  body{
+    font-family:"Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background:var(--canvas); color:var(--ink); line-height:1.55;
+    padding:0 16px 72px; overflow-x:hidden;
+  }
+  .mesh{
+    position:fixed; inset:-20%; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(42% 38% at 18% 12%, rgba(88,101,242,.42), transparent 70%),
+      radial-gradient(36% 34% at 85% 8%,  rgba(236,72,189,.26), transparent 70%),
+      radial-gradient(50% 44% at 78% 88%, rgba(88,101,242,.22), transparent 72%),
+      radial-gradient(30% 30% at 8% 78%,  rgba(236,72,189,.16), transparent 70%);
+    animation:drift 26s ease-in-out infinite alternate;
+  }
+  @keyframes drift{
+    from{transform:translate3d(-2%,-1%,0) scale(1);}
+    to  {transform:translate3d(2%,2%,0) scale(1.06);}
+  }
+  @media (prefers-reduced-motion:reduce){ .mesh{animation:none;} .seg{transition:none;} }
+
+  .wrap{max-width:920px; margin:0 auto;}
+
+  /* ===== Header ===== */
+  header{padding:56px 4px 30px;}
+  .eyebrow{
+    display:inline-block; font-size:.72rem; font-weight:800; letter-spacing:.22em;
+    color:var(--ink); background:rgba(88,101,242,.28); border:1px solid rgba(139,147,248,.5);
+    border-radius:999px; padding:6px 16px; margin-bottom:18px; text-transform:uppercase;
+  }
+  h1{font-size:clamp(1.7rem, 5vw, 2.6rem); font-weight:800; letter-spacing:-.02em; line-height:1.22;}
+  h1 .accent{color:var(--blurple-soft);}
+  .lede{margin-top:14px; color:var(--muted); font-size:.95rem; max-width:58ch;}
+
+  /* ===== Cards ===== */
+  .card{background:var(--surface); border-radius:var(--r-xl); padding:32px 30px; margin-top:20px;}
+  .card h2{font-size:1.05rem; font-weight:800; letter-spacing:-.01em;}
+  .card .hint{font-size:.83rem; color:var(--muted); margin-top:4px; margin-bottom:20px;}
+
+  /* ===== Tooltip ===== */
+  .tip{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:16px; height:16px; border:1px solid var(--muted); border-radius:50%;
+    color:var(--muted); font-size:.66rem; font-weight:800; cursor:help;
+    position:relative; margin-left:6px; vertical-align:1px;
+  }
+  .tip::after{
+    content:attr(data-tip);
+    position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
+    width:230px; background:var(--surface-2); color:var(--ink);
+    border:1px solid rgba(139,147,248,.5); border-radius:10px;
+    font-size:.75rem; font-weight:500; line-height:1.45;
+    padding:10px 12px; z-index:10;
+    opacity:0; pointer-events:none; transition:opacity .12s;
+  }
+  .tip:hover::after, .tip:focus::after{opacity:1;}
+
+  /* ===== Input groups ===== */
+  .group{margin-top:26px; padding-top:22px; border-top:1px solid var(--line);}
+  .group:first-of-type{margin-top:0; padding-top:0; border-top:none;}
+  .gtitle{
+    display:block; width:100%; font-size:.78rem; font-weight:800; letter-spacing:.14em;
+    color:var(--blurple-soft); text-transform:uppercase; margin-bottom:16px;
+  }
+  .grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:16px 18px;}
+  .field label{display:block; font-size:.8rem; font-weight:700; margin-bottom:7px;}
+  .field .unit{font-weight:500; color:var(--muted);}
+  .field input[type=number]{
+    width:100%; padding:11px 13px; font-size:1rem; font-family:inherit; font-weight:600;
+    border:1px solid var(--line); border-radius:var(--r-sm);
+    background:var(--surface-2); color:var(--ink);
+  }
+  .field input[type=number]:focus{outline:2px solid var(--blurple); border-color:transparent;}
+  .field input::placeholder{color:rgba(255,255,255,.35);}
+  .krw-hint{display:block; font-size:.72rem; color:var(--cyan); margin-top:5px; min-height:1em; font-weight:600;}
+
+  /* 전세가율 */
+  .ratio-row{display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-top:10px;}
+  .ratio-row input[type=range]{flex:1; min-width:180px; accent-color:var(--blurple); height:4px;}
+  input[type=range]:disabled{opacity:.45; cursor:not-allowed;}
+  .ratio-val{font-size:1.9rem; font-weight:800; min-width:96px; text-align:right; font-variant-numeric:tabular-nums; letter-spacing:-.02em;}
+  .mode-tag{font-size:.68rem; font-weight:800; color:var(--blurple-soft); background:rgba(88,101,242,.18); border:1px solid rgba(139,147,248,.45); border-radius:999px; padding:3px 10px; margin-left:8px; vertical-align:1px;}
+  .badge{display:inline-block; font-size:.74rem; font-weight:800; padding:5px 14px; border-radius:999px;}
+  .b-safe  {background:rgba(0,176,244,.18);  color:var(--cyan);   border:1px solid rgba(0,176,244,.45);}
+  .b-mid   {background:rgba(88,101,242,.22); color:var(--blurple-soft); border:1px solid rgba(139,147,248,.5);}
+  .b-warn  {background:rgba(236,72,189,.14); color:#f7a9de; border:1px solid rgba(236,72,189,.4);}
+  .b-danger{background:var(--magenta); color:var(--ink); border:1px solid var(--magenta);}
+  .presets{display:flex; align-items:center; gap:8px; margin-top:14px; flex-wrap:wrap; font-size:.8rem; color:var(--muted);}
+  .presets button{
+    font-family:inherit; font-size:.8rem; font-weight:700; padding:8px 15px;
+    border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); cursor:pointer;
+  }
+  .presets button:hover{border-color:var(--blurple); color:var(--blurple-soft);}
+  .presets button:focus-visible{outline:2px solid var(--blurple); outline-offset:2px;}
+  .helper{font-size:.78rem; color:var(--muted); margin-top:10px;}
+  .helper b{color:var(--cyan); font-weight:700;}
+
+  /* toggle */
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;}
+  .toggle-label{flex:1; min-width:240px;}
+  .toggle-label b{font-size:.95rem; display:block;}
+  .toggle-label p{font-size:.8rem; color:var(--muted); margin-top:3px;}
+  .switch{position:relative; width:58px; height:32px; flex:none;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider-ui{position:absolute; inset:0; background:var(--surface-2); border:1px solid var(--line); border-radius:999px; transition:.2s; cursor:pointer;}
+  .slider-ui::before{content:""; position:absolute; width:24px; height:24px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s;}
+  .switch input:checked + .slider-ui{background:var(--blurple); border-color:var(--blurple);}
+  .switch input:checked + .slider-ui::before{transform:translateX(26px);}
+  .switch input:focus-visible + .slider-ui{outline:2px solid var(--blurple-soft); outline-offset:2px;}
+  .ins-alert{
+    display:none; margin-top:14px; padding:13px 16px; border-radius:var(--r-sm);
+    background:rgba(236,72,189,.14); color:#ffd7f0; font-size:.84rem; font-weight:700;
+    border:1px solid rgba(236,72,189,.5);
+  }
+  .ins-alert.show{display:block;}
+
+  /* ===== Verdict ===== */
+  .verdict{
+    margin-top:20px; border-radius:var(--r-xl); padding:34px 30px;
+    background:linear-gradient(120deg, #4752e8, var(--blurple) 55%, #7a5cf5); color:var(--ink);
+  }
+  .verdict .v-eyebrow{font-size:.72rem; font-weight:800; letter-spacing:.2em; opacity:.85; text-transform:uppercase;}
+  .verdict .v-main{font-size:clamp(1.3rem,3.6vw,1.75rem); font-weight:800; margin-top:10px; line-height:1.3; letter-spacing:-.015em;}
+  .verdict .v-main .win{color:var(--green);}
+  .verdict .v-sub{font-size:.9rem; margin-top:10px; opacity:.92;}
+  .flip{
+    margin-top:16px; background:rgba(10,13,58,.45); border:1px solid rgba(255,255,255,.25);
+    border-radius:var(--r-lg); padding:14px 16px; font-size:.87rem; display:none;
+  }
+  .flip.show{display:block;}
+  .flip b{color:#ffd7f0;}
+
+  /* ===== Bars ===== */
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:.78rem; color:var(--muted); margin-bottom:20px;}
+  .legend span{display:flex; align-items:center; gap:7px;}
+  .chip{width:14px; height:14px; border-radius:5px; flex:none;}
+  .c-direct{background:var(--blurple);}
+  .c-opp{background:var(--blurple-soft);}
+  .c-risk{background:repeating-linear-gradient(45deg, var(--magenta) 0 5px, #7c2a68 5px 10px);}
+  .bar-block{margin-bottom:24px;}
+  .bar-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; gap:10px; flex-wrap:wrap;}
+  .bar-head .name{font-weight:800; font-size:.98rem;}
+  .bar-head .name small{font-weight:600; color:var(--muted); font-size:.75rem; margin-left:8px;}
+  .bar-head .total{font-weight:800; font-variant-numeric:tabular-nums;}
+  .bar-track{height:36px; background:var(--surface-2); border-radius:var(--r-sm); overflow:hidden; display:flex;}
+  .seg{height:100%; transition:width .45s ease;}
+  .seg-direct{background:var(--blurple);}
+  .seg-opp{background:var(--blurple-soft);}
+  .seg-risk{background:repeating-linear-gradient(45deg, var(--magenta) 0 5px, #7c2a68 5px 10px);}
+  .bar-detail{font-size:.76rem; color:var(--muted); margin-top:7px; font-variant-numeric:tabular-nums;}
+  .win-tag{
+    font-size:.7rem; font-weight:800; color:#062713; background:var(--green);
+    border-radius:999px; padding:4px 11px; margin-left:10px; vertical-align:2px; letter-spacing:.06em;
+  }
+  .danger-note{color:#f7a9de;}
+  .ins-econ{
+    margin-top:6px; padding:15px 18px; border-radius:var(--r-lg);
+    background:var(--surface-2); border:1px solid rgba(0,176,244,.4);
+    font-size:.86rem; color:var(--ink); display:none;
+  }
+  .ins-econ.show{display:block;}
+  .ins-econ b{color:var(--cyan);}
+
+  /* ===== table ===== */
+  table{width:100%; border-collapse:collapse; font-size:.85rem; margin-top:10px;}
+  th,td{padding:10px 8px; text-align:right; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums;}
+  th:first-child, td:first-child{text-align:left;}
+  thead th{font-size:.72rem; color:var(--muted); font-weight:800; letter-spacing:.08em; text-transform:uppercase;}
+  td.risk-cell{color:var(--magenta); font-weight:800;}
+  tr.total-row td{font-weight:800; border-bottom:none; border-top:2px solid rgba(255,255,255,.7); padding-top:12px;}
+
+  /* ===== checklist / footnote ===== */
+  .check li{margin:12px 0 12px 4px; list-style:none; padding-left:34px; position:relative; font-size:.89rem;}
+  .check li::before{
+    content:"✓"; position:absolute; left:0; top:1px; width:22px; height:22px; border-radius:8px;
+    background:var(--blurple); color:#fff; font-size:.74rem; font-weight:800;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .check li b{display:block;}
+  .check li span{color:var(--muted); font-size:.8rem;}
+  .foot{font-size:.75rem; color:var(--muted); line-height:1.75;}
+  .foot p{margin-bottom:7px;}
+  .foot b{color:rgba(255,255,255,.85);}
+
+  @media (max-width:560px){
+    .card,.verdict{padding:22px 18px; border-radius:24px;}
+    .ratio-val{font-size:1.45rem; min-width:78px;}
+    .tip::after{width:180px;}
+  }
+</style>
+</head>
+<body>
+<div class="mesh" aria-hidden="true"></div>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Youth Housing Risk Calculator · MVP v1.3.1</div>
+    <h1>청년 주거 <span class="accent">위험 조정 비용</span> 비교 계산기</h1>
+    <p class="lede">전세·반전세·월세의 총비용에 기회비용과 전세사기 기대손실(사고 확률 × 보증금 × 미회수율)을 더해, 눈에 보이지 않던 위험을 '원 단위 비용'으로 보여주는 계산기입니다.</p>
+  </header>
+
+  <!-- ============ 입력 ============ -->
+  <section class="card" aria-label="조건 입력">
+    <h2>① 조건 입력</h2>
+    <p class="hint">같은 집(또는 비슷한 조건의 집)을 세 가지 방식으로 계약한다고 가정하고 비교합니다. 금액 단위: 만 원</p>
+
+    <div class="group">
+      <span class="gtitle">공통 조건</span>
+      <div class="grid">
+        <div class="field"><label>거주 기간 <span class="unit">(개월)</span></label><input type="number" id="months" value="24" min="6" max="120" step="6"></div>
+        <div class="field"><label>예금 금리 <span class="unit">(연 %)</span></label><input type="number" id="rSave" value="3.0" min="0" max="10" step="0.1"></div>
+        <div class="field"><label>전세대출 금리 <span class="unit">(연 %)</span></label><input type="number" id="rLoan" value="4.0" min="0" max="12" step="0.1"></div>
+        <div class="field"><label>보증금 중 내 돈 비율 <span class="unit">(%)</span><span class="tip" tabindex="0" data-tip="나머지 금액은 전세대출로 채운다고 가정하고 대출 이자를 계산합니다.">?</span></label><input type="number" id="alpha" value="30" min="0" max="100" step="5"></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="gtitle">전세 조건</span>
+      <div class="grid">
+        <div class="field"><label>전세 보증금 <span class="unit">(만 원)</span></label><input type="number" id="depJ" value="20000" min="0" step="500"></div>
+        <div class="field"><label>매매가 <span class="unit">(만 원 · 알면 입력)</span></label><input type="number" id="price" min="0" step="500" placeholder="예: 25000"></div>
+        <div class="field"><label>공시가격 <span class="unit">(만 원 · 매매가 모를 때)</span></label><input type="number" id="gongsi" min="0" step="500" placeholder="예: 16000"></div>
+      </div>
+      <div style="margin-top:18px;">
+        <label style="font-size:.8rem; font-weight:700;">전세가율 <span class="unit" style="font-weight:500;color:var(--muted)">(보증금 ÷ 매매가)</span><span class="tip" tabindex="0" data-tip="보증금이 집값의 몇 %인지 나타내는 위험 지표입니다. 90%를 넘으면 집을 팔아도 보증금을 돌려주기 어려운 '깡통전세' 위험이 커집니다.">?</span> <span class="mode-tag" id="ratioMode">직접 입력</span></label>
+        <div class="ratio-row">
+          <input type="range" id="ratio" min="50" max="105" value="80" step="1" aria-label="전세가율">
+          <div class="ratio-val"><span id="ratioVal">80</span>%</div>
+          <span class="badge" id="ratioBadge">주의</span>
+        </div>
+        <div class="presets">
+          시나리오:
+          <button type="button" data-r="65">안전 매물 65%</button>
+          <button type="button" data-r="85">경계 매물 85%</button>
+          <button type="button" data-r="95">위험 매물 95%</button>
+        </div>
+        <p class="helper">💡 매매가를 입력하면 전세가율이 <b>자동 계산</b>됩니다. 신축 빌라처럼 매매가를 모르면 공시가격만 입력하세요 — <b>공시가격 × 126%</b>(HUG 기준)로 추정합니다. 둘 다 비우면 슬라이더로 직접 조절합니다.</p>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="gtitle">반전세 · 월세 조건</span>
+      <div class="grid">
+        <div class="field"><label>반전세 보증금 <span class="unit">(만 원)</span></label><input type="number" id="depB" value="8000" min="0" step="500"></div>
+        <div class="field"><label>반전세 월세 <span class="unit">(만 원)</span></label><input type="number" id="rentB" value="40" min="0" step="5"></div>
+        <div class="field"><label>월세 보증금 <span class="unit">(만 원)</span></label><input type="number" id="depM" value="1000" min="0" step="100"></div>
+        <div class="field"><label>월세 <span class="unit">(만 원)</span></label><input type="number" id="rentM" value="80" min="0" step="5"></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="gtitle">위험 관리</span>
+      <div class="toggle-row">
+        <div class="toggle-label">
+          <b>전세보증금 반환보증 가입 (HUG)</b>
+          <p>보증료 연 0.128% 수준으로, 사고 시 보증금 전액을 돌려받습니다. 전세·반전세 보증금에 적용.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="insured">
+          <span class="slider-ui"></span>
+        </label>
+      </div>
+      <div class="ins-alert" id="insAlert">⚠ 전세가율 90% 초과 매물은 보증보험 가입 자체가 불가능합니다(2023.5. 제도 개편). 전세 계약에는 보험이 적용되지 않은 결과입니다. 보험으로도 지킬 수 없는 매물입니다.</div>
+    </div>
+  </section>
+
+  <!-- ============ 결과 요약 ============ -->
+  <section class="verdict" aria-live="polite">
+    <div class="v-eyebrow">② Risk-Adjusted Result</div>
+    <div class="v-main" id="verdictMain">계산 중…</div>
+    <div class="v-sub" id="verdictSub"></div>
+    <div class="flip" id="flipCard"></div>
+  </section>
+
+  <!-- ============ 차트 ============ -->
+  <section class="card">
+    <h2>③ 총비용 구성 <span style="font-weight:600; font-size:.8rem; color:var(--muted)">(거주 기간 전체 기준)</span></h2>
+    <p class="hint">빗금 무늬가 이 계산기의 핵심입니다 — 지금까지 아무도 계산에 넣지 않던 '전세사기 기대손실'.</p>
+    <div class="legend">
+      <span><i class="chip c-direct"></i>직접 지출 (월세·대출이자·보험료)</span>
+      <span><i class="chip c-opp"></i>기회비용<span class="tip" tabindex="0" data-tip="보증금으로 묶인 돈을 예금했다면 받을 수 있었던 이자만큼의 손해입니다.">?</span></span>
+      <span><i class="chip c-risk"></i>기대손실<span class="tip" tabindex="0" data-tip="사고 확률 × 보증금 × 못 돌려받는 비율. 아직 일어나지 않은 위험을 미리 돈으로 환산한 값입니다.">?</span></span>
+    </div>
+    <div id="bars"></div>
+    <div class="ins-econ" id="insEcon"></div>
+  </section>
+
+  <!-- ============ 상세 표 ============ -->
+  <section class="card">
+    <h2>④ 상세 내역</h2>
+    <div style="overflow-x:auto;">
+      <table id="detailTable">
+        <thead>
+          <tr><th>항목</th><th>전세</th><th>반전세</th><th>월세</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============ 체크리스트 ============ -->
+  <section class="card">
+    <h2>⑤ 숫자로 잡히지 않는 위험 — 계약 전 필수 확인 3가지</h2>
+    <p class="hint">이 계산기는 '깡통전세형' 위험을 정량화합니다. 서류 위조·권리관계형 사기는 아래 절차로만 막을 수 있습니다.</p>
+    <ul class="check">
+      <li><b>등기부등본 직접 발급·확인</b><span>근저당(선순위 대출)과 신탁 등기 여부 확인. 신탁 등기가 있다면 신탁회사 동의 없는 계약은 무효가 될 수 있습니다.</span></li>
+      <li><b>집주인 본인 확인 + 계좌 명의 일치</b><span>등기부상 소유자와 계약 상대, 보증금 입금 계좌의 명의가 모두 같은 사람인지 대조합니다. 이중계약·대리인 사기 방지.</span></li>
+      <li><b>특약: "잔금일 다음 날까지 근저당 등 권리 변동 금지"</b><span>전입신고의 효력(대항력)은 다음 날 0시에 생기는 법적 공백을 노리는 '당일 대출' 수법을 차단합니다.</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ 가정과 한계 ============ -->
+  <section class="card">
+    <h2>가정과 한계 · 출처</h2>
+    <div class="foot" style="margin-top:12px;">
+      <p><b>모델 가정</b> — 사고 확률(2년 계약 기준): 전세가율 70% 미만 1.0% / 70~80% 2.5% / 80~90% 5.0% / 90% 초과 12.0%. 거주 기간에 비례 조정. 무보험 시 회수율 40% 가정(보수적). 보증료율 연 0.128% 적용(실제 0.115~0.154%). 반전세·월세 보증금의 위험은 같은 집 기준 보증금 비율로 환산.</p>
+      <p><b>한계</b> — 사고 확률은 전국 평균 통계 기반이며 지역·주택유형에 따라 실제 위험은 다릅니다. HUG 통계는 보증 가입자 표본입니다. 금리·전세가율은 계약 시점 값으로 고정했습니다. 본 도구는 참고용이며 법률·투자 자문이 아닙니다.</p>
+      <p><b>주요 출처</b> — 국회 국토교통위원회·HUG, 전세보증금반환보증 사고 현황(2020~2025) / 국토교통부, 전세사기 실태조사(2025.6) / KDI FOCUS, 「전세보증금 반환보증제도 개선방안」(문윤상, 2023.9)</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const $ = id => document.getElementById(id);
+  const inputs = ["months","rSave","rLoan","alpha","depJ","price","gongsi","depB","rentB","depM","rentM"].map($);
+  const ratioEl = $("ratio"), insuredEl = $("insured");
+
+  function fmt(man){
+    man = Math.round(man);
+    const sign = man < 0 ? "-" : "";
+    man = Math.abs(man);
+    if(man >= 10000){
+      const eok = Math.floor(man/10000), rest = man % 10000;
+      return sign + eok + "억" + (rest ? " " + rest.toLocaleString("ko-KR") + "만 원" : " 원");
+    }
+    return sign + man.toLocaleString("ko-KR") + "만 원";
+  }
+
+  function tierProb(r){
+    if(r < 70) return 0.010;
+    if(r < 80) return 0.025;
+    if(r < 90) return 0.050;
+    return 0.120;
+  }
+  function tierBadge(r){
+    if(r < 70) return ["안전","b-safe"];
+    if(r < 80) return ["보통","b-mid"];
+    if(r < 90) return ["주의","b-warn"];
+    return ["위험 · 보험 가입 불가","b-danger"];
+  }
+
+  const RECOVERY = 0.40;
+  const PREMIUM  = 0.00128;
+
+  function costOf(deposit, rent, ratio, p){
+    const years = p.years;
+    const loanPart = deposit * (1 - p.alpha);
+    const ownPart  = deposit * p.alpha;
+    const interest = loanPart * p.rl * years;
+    const rentSum  = rent * p.months;
+    const opp      = ownPart * p.rs * years;
+    const insurable = ratio <= 90;
+    const useIns   = p.insured && insurable && deposit > 0;
+    const premium  = useIns ? deposit * PREMIUM * years : 0;
+    const prob     = tierProb(ratio) * (p.months / 24);
+    const expLoss  = useIns ? 0 : prob * deposit * (1 - RECOVERY);
+    return {
+      direct: rentSum + interest + premium,
+      rentSum, interest, premium, opp, expLoss,
+      prob, insurable, useIns,
+      surface: rentSum + interest + premium + opp,
+      total:   rentSum + interest + premium + opp + expLoss
+    };
+  }
+
+  function calc(){
+    const v = id => parseFloat($(id).value) || 0;
+    const months = Math.max(1, v("months"));
+    const p = {
+      months, years: months/12,
+      rs: v("rSave")/100, rl: v("rLoan")/100,
+      alpha: Math.min(100, Math.max(0, v("alpha")))/100,
+      insured: insuredEl.checked
+    };
+    const dJ = v("depJ"), dB = v("depB"), dM = v("depM");
+    const price = v("price"), gongsi = v("gongsi");
+    let R, mode;
+    if(price > 0 && dJ > 0){ R = dJ / price * 100; mode = "매매가 기준 자동"; }
+    else if(gongsi > 0 && dJ > 0){ R = dJ / (gongsi * 1.26) * 100; mode = "공시가×126% 추정"; }
+    else { R = parseFloat(ratioEl.value); mode = "직접 입력"; }
+    R = Math.min(130, Math.max(30, R));
+    const auto = mode !== "직접 입력";
+    ratioEl.disabled = auto;
+    if(auto) ratioEl.value = Math.min(105, Math.max(50, Math.round(R)));
+    $("ratioMode").textContent = mode;
+
+    const rB = dJ > 0 ? R * dB / dJ : 0;
+    const rM = dJ > 0 ? R * dM / dJ : 0;
+
+    const res = {
+      "전세":   costOf(dJ, 0,          R,  p),
+      "반전세": costOf(dB, v("rentB"), rB, p),
+      "월세":   costOf(dM, v("rentM"), rM, p)
+    };
+    render(res, R, p);
+  }
+
+  function render(res, R, p){
+    const names = Object.keys(res);
+
+    $("ratioVal").textContent = (Math.round(R*10)/10).toString();
+    const [txt, cls] = tierBadge(R);
+    const badge = $("ratioBadge");
+    badge.textContent = txt; badge.className = "badge " + cls;
+
+    $("insAlert").classList.toggle("show", p.insured && R > 90);
+
+    const byTotal   = [...names].sort((a,b)=>res[a].total - res[b].total);
+    const bySurface = [...names].sort((a,b)=>res[a].surface - res[b].surface);
+    const win = byTotal[0], second = byTotal[1];
+    const gap = res[second].total - res[win].total;
+
+    $("verdictMain").innerHTML = `${p.months}개월 기준, 실질 총비용 1위는 <span class="win">「${win}」</span> 입니다.`;
+    $("verdictSub").textContent  = `2위 「${second}」보다 약 ${fmt(gap)} 저렴 · 위험 비용(기대손실)까지 합산한 결과`;
+
+    const flip = $("flipCard");
+    if(bySurface[0] !== byTotal[0]){
+      const cheapLook = bySurface[0];
+      flip.innerHTML = `🔄 <b>순위 역전 발생!</b> 겉으로 보이는 비용만 비교하면 「${cheapLook}」(${fmt(res[cheapLook].surface)})가 가장 싸 보이지만, 전세사기 기대손실 <b>${fmt(res[cheapLook].expLoss)}</b>을 더하는 순간 순위가 뒤집힙니다. — "싸 보이는 선택이 최적의 선택은 아니다."`;
+      flip.classList.add("show");
+    } else {
+      flip.classList.remove("show");
+    }
+
+    const maxT = Math.max(...names.map(n=>res[n].total), 1);
+    $("bars").innerHTML = names.map(n=>{
+      const r = res[n];
+      const w = k => (r[k]/maxT*100).toFixed(2) + "%";
+      const winTag = n === win ? `<span class="win-tag">BEST</span>` : "";
+      const insNote = (n!=="월세" && r.useIns) ? ` · 보험 적용` : (n==="전세" && p.insured && !r.insurable ? ` · <span class="danger-note">보험 가입 불가</span>` : "");
+      return `<div class="bar-block">
+        <div class="bar-head">
+          <div class="name">${n}${winTag}<small>사고확률 ${(r.prob*100).toFixed(1)}%${insNote}</small></div>
+          <div class="total">${fmt(r.total)}</div>
+        </div>
+        <div class="bar-track" role="img" aria-label="${n} 총비용 ${fmt(r.total)}">
+          <div class="seg seg-direct" style="width:${w("direct")}"></div>
+          <div class="seg seg-opp" style="width:${w("opp")}"></div>
+          <div class="seg seg-risk" style="width:${w("expLoss")}"></div>
+        </div>
+        <div class="bar-detail">직접 ${fmt(r.direct)} · 기회비용 ${fmt(r.opp)} · 기대손실 ${fmt(r.expLoss)}</div>
+      </div>`;
+    }).join("");
+
+    const econ = $("insEcon");
+    const j = res["전세"];
+    if(p.insured && j.useIns){
+      const wouldLoss = tierProb(R) * (p.months/24) * (parseFloat($("depJ").value)||0) * (1 - RECOVERY);
+      const mult = j.premium > 0 ? (wouldLoss / j.premium) : 0;
+      econ.innerHTML = `🛡 보험의 경제학 — 보증료 <b>${fmt(j.premium)}</b>으로 기대손실 <b>${fmt(wouldLoss)}</b>이 사라졌습니다. 낸 돈의 약 <b>${mult.toFixed(1)}배</b>에 달하는 위험을 제거한, '남는 거래'입니다.`;
+      econ.classList.add("show");
+    } else if(!p.insured){
+      const wouldLoss = j.expLoss;
+      const wouldPrem = (parseFloat($("depJ").value)||0) * PREMIUM * p.years;
+      if(R <= 90 && wouldLoss > 0){
+        econ.innerHTML = `💡 지금 보험 미가입 상태입니다 — 보증료 약 <b>${fmt(wouldPrem)}</b>이면 기대손실 <b>${fmt(wouldLoss)}</b>을 0으로 만들 수 있습니다. 위 토글을 켜서 비교해 보세요.`;
+        econ.classList.add("show");
+      } else econ.classList.remove("show");
+    } else econ.classList.remove("show");
+
+    const rows = [
+      ["월세 지출", "rentSum"],
+      ["대출 이자", "interest"],
+      ["보증보험료", "premium"],
+      ["기회비용", "opp"],
+      ["기대손실 (위험 비용)", "expLoss"]
+    ];
+    let html = rows.map(([label,key])=>{
+      const cls = key==="expLoss" ? ' class="risk-cell"' : "";
+      return `<tr><td>${label}</td>` + names.map(n=>`<td${cls}>${fmt(res[n][key])}</td>`).join("") + `</tr>`;
+    }).join("");
+    html += `<tr class="total-row"><td>실질 총비용</td>` + names.map(n=>`<td>${fmt(res[n].total)}</td>`).join("") + `</tr>`;
+    document.querySelector("#detailTable tbody").innerHTML = html;
+  }
+
+  // 금액 입력란 아래 한글 금액 실시간 표시
+  ["depJ","price","gongsi","depB","depM"].forEach(id=>{
+    const el = $(id);
+    const hint = document.createElement("span");
+    hint.className = "krw-hint";
+    el.insertAdjacentElement("afterend", hint);
+    const update = ()=>{ const val = parseFloat(el.value)||0; hint.textContent = val > 0 ? "= " + fmt(val) : ""; };
+    el.addEventListener("input", update); update();
+  });
+
+  inputs.forEach(el=>el.addEventListener("input", calc));
+  ratioEl.addEventListener("input", calc);
+  insuredEl.addEventListener("change", calc);
+  document.querySelectorAll(".presets button").forEach(b=>{
+    b.addEventListener("click", ()=>{ $("price").value = ""; $("gongsi").value = ""; ratioEl.value = b.dataset.r; calc(); });
+  });
+
+  calc();
+})();
+</script>
+</body>
+</html>
